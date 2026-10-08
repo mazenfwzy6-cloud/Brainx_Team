@@ -5,8 +5,8 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', requireAuth, (req, res) => {
-  const rows = db.prepare(`
+router.get('/', requireAuth, async (req, res) => {
+  const rows = await db.prepare(`
     SELECT cm.*, u.full_name, u.role
     FROM chat_messages cm
     JOIN users u ON u.id = cm.sender_id
@@ -16,7 +16,7 @@ router.get('/', requireAuth, (req, res) => {
   return res.json({ messages: rows });
 });
 
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const { content } = req.body;
 
   if (!content || !content.trim()) {
@@ -31,12 +31,12 @@ router.post('/', requireAuth, (req, res) => {
     created_at: new Date().toISOString(),
   };
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO chat_messages (id, sender_id, content, created_at)
     VALUES (?, ?, ?, ?)
   `).run(newMessage.id, newMessage.sender_id, newMessage.content, newMessage.created_at);
 
-  const sender = db.prepare('SELECT full_name, role FROM users WHERE id = ?').get(req.user.id);
+  const sender = await db.prepare('SELECT full_name, role FROM users WHERE id = ?').get(req.user.id);
   const payload = { ...newMessage, full_name: sender.full_name, role: sender.role };
 
   req.app.get('io').emit('message-received', payload);

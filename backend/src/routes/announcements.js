@@ -5,8 +5,8 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', requireAuth, (req, res) => {
-  const rows = db.prepare(`
+router.get('/', requireAuth, async (req, res) => {
+  const rows = await db.prepare(`
     SELECT a.*, u.full_name AS created_by_name
     FROM announcements a
     JOIN users u ON u.id = a.created_by
@@ -15,7 +15,7 @@ router.get('/', requireAuth, (req, res) => {
   return res.json({ announcements: rows });
 });
 
-router.post('/', requireAuth, requireAdmin, (req, res) => {
+router.post('/', requireAuth, requireAdmin, async (req, res) => {
   const { content, is_pinned } = req.body;
 
   if (!content || !content.trim()) {
@@ -23,28 +23,28 @@ router.post('/', requireAuth, requireAdmin, (req, res) => {
   }
 
   const announcementId = uuidv4();
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO announcements (id, content, created_by, is_pinned)
     VALUES (?, ?, ?, ?)
   `).run(announcementId, content.trim(), req.user.id, is_pinned ? 1 : 0);
 
-  const users = db.prepare('SELECT id FROM users').all();
-  users.forEach((user) => {
-    db.prepare(`INSERT INTO notifications (id, user_id, message, type) VALUES (?, ?, ?, ?)`).run(uuidv4(), user.id, 'New announcement published.', 'announcement');
-  });
+  const users = await db.prepare('SELECT id FROM users').all();
+  for (const user of users) {
+    await db.prepare(`INSERT INTO notifications (id, user_id, message, type) VALUES (?, ?, ?, ?)`).run(uuidv4(), user.id, 'New announcement published.', 'announcement');
+  }
 
   return res.status(201).json({ message: 'Announcement created successfully.' });
 });
 
-router.put('/:id', requireAuth, requireAdmin, (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { content, is_pinned } = req.body;
-  const existing = db.prepare('SELECT * FROM announcements WHERE id = ?').get(req.params.id);
+  const existing = await db.prepare('SELECT * FROM announcements WHERE id = ?').get(req.params.id);
 
   if (!existing) {
     return res.status(404).json({ message: 'Announcement not found.' });
   }
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE announcements
     SET content = ?, is_pinned = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
@@ -53,13 +53,13 @@ router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   return res.json({ message: 'Announcement updated successfully.' });
 });
 
-router.delete('/:id', requireAuth, requireAdmin, (req, res) => {
-  const existing = db.prepare('SELECT * FROM announcements WHERE id = ?').get(req.params.id);
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  const existing = await db.prepare('SELECT * FROM announcements WHERE id = ?').get(req.params.id);
   if (!existing) {
     return res.status(404).json({ message: 'Announcement not found.' });
   }
 
-  db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
+  await db.prepare('DELETE FROM announcements WHERE id = ?').run(req.params.id);
   return res.json({ message: 'Announcement deleted successfully.' });
 });
 

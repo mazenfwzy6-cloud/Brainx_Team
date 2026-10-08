@@ -14,6 +14,7 @@ import chatRoutes from './routes/chat.js';
 import fileRoutes from './routes/files.js';
 import dashboardRoutes from './routes/dashboard.js';
 import notificationRoutes from './routes/notifications.js';
+import { initializeDatabase } from './db.js';
 
 dotenv.config();
 
@@ -26,8 +27,8 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST']
-  }
+    methods: ['GET', 'POST'],
+  },
 });
 
 app.use(cors({ origin: '*', credentials: true }));
@@ -65,7 +66,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Campus Team Flow backend is running.' });
 });
 
-const port = Number(process.env.PORT || 5000);
-server.listen(port, () => {
-  console.log(`Backend running on http://localhost:${port}`);
-});
+const startServer = async () => {
+  try {
+    await initializeDatabase();
+    const port = Number(process.env.PORT || 5000);
+    server.listen(port, () => {
+      console.log(`Backend running on http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'campus-team-flow-secret';
 
 const normalizeName = (value) => String(value || '').trim();
 
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { full_name, academic_id, password, confirm_password, team_role, work_type } = req.body;
 
   if (!full_name || !academic_id || !password || !confirm_password || !team_role || !work_type) {
@@ -31,7 +31,7 @@ router.post('/register', (req, res) => {
     return res.status(400).json({ message: 'Invalid details provided.' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE academic_id = ?').get(academicCode);
+  const existing = await db.prepare('SELECT id FROM users WHERE academic_id = ?').get(academicCode);
   if (existing) {
     return res.status(409).json({ message: 'Academic ID already exists.' });
   }
@@ -39,27 +39,25 @@ router.post('/register', (req, res) => {
   const passwordHash = bcrypt.hashSync(password, 10);
   const userId = uuidv4();
 
-  const insert = db.prepare(`
+  await db.prepare(`
     INSERT INTO users (id, full_name, academic_id, password_hash, team_role, work_type, role)
     VALUES (?, ?, ?, ?, ?, ?, 'member')
-  `);
+  `).run(userId, cleanName, academicCode, passwordHash, team_role, work_type);
 
-  insert.run(userId, cleanName, academicCode, passwordHash, team_role, work_type);
-
-  const user = db.prepare('SELECT id, full_name, academic_id, team_role, work_type, role FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT id, full_name, academic_id, team_role, work_type, role FROM users WHERE id = ?').get(userId);
   const token = jwt.sign({ id: user.id, role: user.role, academic_id: user.academic_id }, JWT_SECRET, { expiresIn: '7d' });
 
   return res.status(201).json({ message: 'Registration successful.', token, user });
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { academic_id, password } = req.body;
 
   if (!academic_id || !password) {
     return res.status(400).json({ message: 'Academic ID and password are required.' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE academic_id = ?').get(String(academic_id).trim());
+  const user = await db.prepare('SELECT * FROM users WHERE academic_id = ?').get(String(academic_id).trim());
   if (!user) {
     return res.status(401).json({ message: 'Invalid Academic ID or password.' });
   }
@@ -83,7 +81,7 @@ router.post('/login', (req, res) => {
   return res.json({ message: 'Login successful.', token, user: safeUser });
 });
 
-router.get('/me', (req, res) => {
+router.get('/me', async (req, res) => {
   const token = req.headers.authorization?.startsWith('Bearer ')
     ? req.headers.authorization.split(' ')[1]
     : null;
@@ -94,7 +92,7 @@ router.get('/me', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare('SELECT id, full_name, academic_id, team_role, work_type, role FROM users WHERE id = ?').get(decoded.id);
+    const user = await db.prepare('SELECT id, full_name, academic_id, team_role, work_type, role FROM users WHERE id = ?').get(decoded.id);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });

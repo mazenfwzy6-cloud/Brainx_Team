@@ -4,8 +4,8 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', requireAuth, (req, res) => {
-  const rows = db.prepare(`
+router.get('/', requireAuth, async (req, res) => {
+  const rows = await db.prepare(`
     SELECT * FROM notifications
     WHERE user_id = ?
     ORDER BY created_at DESC
@@ -14,8 +14,8 @@ router.get('/', requireAuth, (req, res) => {
   return res.json({ notifications: rows });
 });
 
-router.patch('/:id/read', requireAuth, (req, res) => {
-  db.prepare(`UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?`).run(req.params.id, req.user.id);
+router.patch('/:id/read', requireAuth, async (req, res) => {
+  await db.prepare(`UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?`).run(req.params.id, req.user.id);
   return res.json({ message: 'Notification marked as read.' });
 });
 

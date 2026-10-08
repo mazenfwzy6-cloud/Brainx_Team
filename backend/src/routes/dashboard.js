@@ -4,17 +4,17 @@ import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/stats', requireAuth, requireAdmin, (req, res) => {
-  const totalMembers = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
-  const totalTasks = db.prepare('SELECT COUNT(*) AS count FROM tasks').get().count;
-  const completedTasks = db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Completed'").get().count;
-  const pendingTasks = db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Pending'").get().count;
-  const overdueTasks = db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Overdue'").get().count;
-  const softwareMembers = db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Software'").get().count;
-  const hardwareMembers = db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Hardware'").get().count;
-  const hybridMembers = db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Hardware & Software'").get().count;
+router.get('/stats', requireAuth, requireAdmin, async (req, res) => {
+  const totalMembers = (await db.prepare('SELECT COUNT(*) AS count FROM users').get()).count;
+  const totalTasks = (await db.prepare('SELECT COUNT(*) AS count FROM tasks').get()).count;
+  const completedTasks = (await db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Completed'").get()).count;
+  const pendingTasks = (await db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Pending'").get()).count;
+  const overdueTasks = (await db.prepare("SELECT COUNT(*) AS count FROM tasks WHERE status = 'Overdue'").get()).count;
+  const softwareMembers = (await db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Software'").get()).count;
+  const hardwareMembers = (await db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Hardware'").get()).count;
+  const hybridMembers = (await db.prepare("SELECT COUNT(*) AS count FROM users WHERE work_type = 'Hardware & Software'").get()).count;
 
-  const tasksByStatus = db.prepare(`
+  const tasksByStatus = await db.prepare(`
     SELECT status, COUNT(*) AS count
     FROM tasks
     GROUP BY status

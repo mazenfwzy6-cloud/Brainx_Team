@@ -24,8 +24,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.get('/', requireAuth, (req, res) => {
-  const rows = db.prepare(`
+router.get('/', requireAuth, async (req, res) => {
+  const rows = await db.prepare(`
     SELECT f.*, u.full_name AS uploaded_by_name
     FROM files f
     JOIN users u ON u.id = f.uploaded_by
@@ -35,7 +35,7 @@ router.get('/', requireAuth, (req, res) => {
   return res.json({ files: rows });
 });
 
-router.post('/upload', requireAuth, requireAdmin, upload.single('file'), (req, res) => {
+router.post('/upload', requireAuth, requireAdmin, upload.single('file'), async (req, res) => {
   const { category, description } = req.body;
   const file = req.file;
 
@@ -46,15 +46,15 @@ router.post('/upload', requireAuth, requireAdmin, upload.single('file'), (req, r
   const fileId = uuidv4();
   const fileUrl = `/uploads/${file.filename}`;
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO files (id, name, category, file_url, description, uploaded_by)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(fileId, file.originalname, category || 'Other', fileUrl, description || '', req.user.id);
 
-  const users = db.prepare('SELECT id FROM users').all();
-  users.forEach((user) => {
-    db.prepare(`INSERT INTO notifications (id, user_id, message, type) VALUES (?, ?, ?, ?)`).run(uuidv4(), user.id, `New file uploaded: ${file.originalname}`, 'file');
-  });
+  const users = await db.prepare('SELECT id FROM users').all();
+  for (const user of users) {
+    await db.prepare(`INSERT INTO notifications (id, user_id, message, type) VALUES (?, ?, ?, ?)`).run(uuidv4(), user.id, `New file uploaded: ${file.originalname}`, 'file');
+  }
 
   return res.status(201).json({ message: 'File uploaded successfully.' });
 });
